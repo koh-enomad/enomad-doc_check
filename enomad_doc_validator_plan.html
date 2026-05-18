@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>ENOMAD KOREA | 서류 검증 도구 (프로토타입)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { font-family: 'Inter', 'Noto Sans KR', sans-serif; }
+  body { background: #f5f7f9; color: #111; }
+  .brand-gradient { background: linear-gradient(135deg, #5A9DB5 0%, #2C5F73 100%); }
+  .brand-text { color: #2C5F73; }
+  .brand-bg-soft { background: #f4f8fa; }
+  .upload-box {
+    border: 2px dashed #B8D4DE;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .upload-box:hover { border-color: #5A9DB5; background: #f4f8fa; }
+  .upload-box.uploaded { border-style: solid; border-color: #5A9DB5; background: #f4f8fa; }
+  .upload-box.dragover { border-color: #5A9DB5; background: #e8f1f4; transform: scale(1.02); }
+  @keyframes pulse-scan {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .scanning { animation: pulse-scan 1.2s ease-in-out infinite; }
+  .status-pass { background: #d1f4dc; color: #0f7a3a; border: 1px solid #7dd99e; }
+  .status-warn { background: #fef4d6; color: #8a6500; border: 1px solid #f0d367; }
+  .status-fail { background: #fcdfdf; color: #a02020; border: 1px solid #f0a0a0; }
+  .fade-in { animation: fadeIn 0.4s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- HEADER -->
+<header class="brand-gradient text-white">
+  <div class="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
+    <div>
+      <div class="text-xs opacity-80 tracking-widest">DOCUMENT VALIDATION TOOL · PROTOTYPE</div>
+      <div class="text-xl font-bold mt-1">수출 서류 검증 자동화</div>
+    </div>
+    <div class="text-right">
+      <div class="text-base font-bold tracking-wider">ENOMAD KOREA</div>
+      <div class="text-[9px] opacity-70 tracking-widest">GDC & B2C DEVELOPMENT LABORATORY</div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-6 py-8">
+
+  <!-- DEMO MODE BANNER -->
+  <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded mb-6 text-sm">
+    <b>🧪 프로토타입 모드</b> &nbsp;|&nbsp; 실제 AI 분석 없이 UX·로직 검증용입니다. 아래 시나리오 중 선택하여 결과를 미리 확인하세요.
+  </div>
+
+  <!-- SCENARIO PICKER -->
+  <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+    <div class="text-sm font-bold brand-text mb-2">📋 테스트 시나리오 선택</div>
+    <div class="flex gap-2 flex-wrap">
+      <button onclick="setScenario('perfect')" class="scenario-btn px-3 py-2 text-xs border border-gray-300 rounded hover:bg-gray-50">
+        ✅ 시나리오 A · 모든 항목 일치
+      </button>
+      <button onclick="setScenario('weight-fail')" class="scenario-btn px-3 py-2 text-xs border border-gray-300 rounded hover:bg-gray-50">
+        ⚠️ 시나리오 B · 면장 중량 불일치 (실제 사례)
+      </button>
+      <button onclick="setScenario('multi-fail')" class="scenario-btn px-3 py-2 text-xs border border-gray-300 rounded hover:bg-gray-50">
+        ❌ 시나리오 C · HS코드+수하인 불일치
+      </button>
+    </div>
+    <div id="scenarioDesc" class="text-xs text-gray-600 mt-2">시나리오를 선택하면 해당 케이스로 검증 결과가 출력됩니다.</div>
+  </div>
+
+  <!-- STEP 1: UPLOAD -->
+  <section class="mb-6">
+    <h2 class="text-base font-bold brand-text mb-3">STEP 1. 서류 업로드</h2>
+    <div class="grid grid-cols-3 gap-3">
+      <div class="upload-box rounded-lg p-5 text-center bg-white" id="box-invoice" onclick="document.getElementById('file-invoice').click()">
+        <div class="text-3xl mb-2">📄</div>
+        <div class="font-bold text-sm">인보이스</div>
+        <div class="text-xs text-gray-500 mt-1" id="status-invoice">PDF · Excel 업로드</div>
+        <input type="file" id="file-invoice" class="hidden" accept=".pdf,.xlsx,.xls" onchange="handleUpload('invoice', this)">
+      </div>
+      <div class="upload-box rounded-lg p-5 text-center bg-white" id="box-packing" onclick="document.getElementById('file-packing').click()">
+        <div class="text-3xl mb-2">📦</div>
+        <div class="font-bold text-sm">패킹리스트</div>
+        <div class="text-xs text-gray-500 mt-1" id="status-packing">PDF · Excel 업로드</div>
+        <input type="file" id="file-packing" class="hidden" accept=".pdf,.xlsx,.xls" onchange="handleUpload('packing', this)">
+      </div>
+      <div class="upload-box rounded-lg p-5 text-center bg-white" id="box-customs" onclick="document.getElementById('file-customs').click()">
+        <div class="text-3xl mb-2">📋</div>
+        <div class="font-bold text-sm">면장 <span class="text-[10px] text-gray-400">(기준)</span></div>
+        <div class="text-xs text-gray-500 mt-1" id="status-customs">PDF · Excel 업로드</div>
+        <input type="file" id="file-customs" class="hidden" accept=".pdf,.xlsx,.xls" onchange="handleUpload('customs', this)">
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 2: VALIDATE BUTTON -->
+  <section class="mb-6 text-center">
+    <button id="validateBtn" onclick="runValidation()" disabled
+      class="brand-gradient text-white px-8 py-3 rounded-lg font-bold disabled:opacity-40 disabled:cursor-not-allowed">
+      🔍 검증 시작
+    </button>
+    <div class="text-xs text-gray-500 mt-2" id="validateHint">3개 서류를 모두 업로드하고 시나리오를 선택해주세요.</div>
+  </section>
+
+  <!-- SCANNING -->
+  <section id="scanning" class="hidden text-center py-10">
+    <div class="text-5xl scanning">🔍</div>
+    <div class="text-base font-bold brand-text mt-3" id="scanText">서류 분석 중...</div>
+    <div class="text-xs text-gray-500 mt-1">5개 항목 × 3개 서류 교차 검증</div>
+  </section>
+
+  <!-- STEP 3: REPORT -->
+  <section id="report" class="hidden fade-in">
+    <h2 class="text-base font-bold brand-text mb-3">STEP 3. 검증 리포트</h2>
+
+    <!-- 종합 결과 -->
+    <div id="summaryCard" class="rounded-lg p-5 mb-4 text-center">
+      <div class="text-xs opacity-80 tracking-widest mb-1">VALIDATION RESULT</div>
+      <div class="text-3xl font-extrabold" id="summaryTitle">—</div>
+      <div class="text-sm mt-1" id="summarySub">—</div>
+    </div>
+
+    <!-- 항목별 결과 -->
+    <div class="grid grid-cols-5 gap-2 mb-4" id="itemGrid"></div>
+
+    <!-- 상세 내역 -->
+    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div class="brand-bg-soft px-4 py-2 text-xs font-bold brand-text border-b border-gray-200">📊 상세 검증 내역</div>
+      <table class="w-full text-xs">
+        <thead class="bg-gray-50">
+          <tr class="text-left">
+            <th class="px-3 py-2 font-semibold">항목</th>
+            <th class="px-3 py-2 font-semibold">인보이스</th>
+            <th class="px-3 py-2 font-semibold">패킹리스트</th>
+            <th class="px-3 py-2 font-semibold">면장 (기준)</th>
+            <th class="px-3 py-2 font-semibold text-center">판정</th>
+          </tr>
+        </thead>
+        <tbody id="detailTable"></tbody>
+      </table>
+    </div>
+
+    <!-- 이슈 리스트 -->
+    <div id="issueList" class="mt-4"></div>
+
+    <!-- 액션 버튼 -->
+    <div class="flex gap-2 mt-5 justify-center">
+      <button onclick="resetAll()" class="px-5 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">🔄 다시 검증</button>
+      <button onclick="window.print()" class="brand-gradient text-white px-5 py-2 rounded text-sm font-semibold">📥 리포트 인쇄/PDF</button>
+    </div>
+  </section>
+
+  <footer class="mt-12 pt-4 border-t border-gray-200 text-center text-[10px] text-gray-400">
+    ENOMAD KOREA · Document Validator Prototype v0.1 · 2026.05
+  </footer>
+</main>
+
+<script>
+// ================== 데이터 정의 ==================
+const scenarios = {
+  perfect: {
+    name: '모든 항목 일치',
+    data: {
+      weight:    { invoice: '450.5 kg', packing: '450.5 kg', customs: '450.5 kg', status: 'pass' },
+      amount:    { invoice: 'USD 12,450', packing: '—', customs: 'USD 12,450', status: 'pass' },
+      hscode:    { invoice: '3304.99', packing: '—', customs: '3304.99', status: 'pass' },
+      shipper:   { invoice: 'ENOMAD KOREA Co.,Ltd', packing: 'ENOMAD KOREA Co.,Ltd', customs: 'ENOMAD KOREA Co.,Ltd', status: 'pass' },
+      consignee: { invoice: 'BEAUTY USA INC.', packing: 'BEAUTY USA INC.', customs: 'BEAUTY USA INC.', status: 'pass' }
+    }
+  },
+  'weight-fail': {
+    name: '면장 중량 불일치 (실제 사례)',
+    data: {
+      weight:    { invoice: '380.0 kg', packing: '380.0 kg', customs: '350.0 kg', status: 'fail' },
+      amount:    { invoice: 'USD 8,900', packing: '—', customs: 'USD 8,900', status: 'pass' },
+      hscode:    { invoice: '2106.90', packing: '—', customs: '2106.90', status: 'pass' },
+      shipper:   { invoice: 'ENOMAD KOREA Co.,Ltd', packing: 'ENOMAD KOREA Co.,Ltd', customs: 'ENOMAD KOREA Co.,Ltd', status: 'pass' },
+      consignee: { invoice: 'K-FOOD MEXICO S.A.', packing: 'K-FOOD MEXICO S.A.', customs: 'K-FOOD MEXICO S.A.', status: 'pass' }
+    }
+  },
+  'multi-fail': {
+    name: 'HS코드 + 수하인 불일치',
+    data: {
+      weight:    { invoice: '220.0 kg', packing: '220.0 kg', customs: '220.0 kg', status: 'pass' },
+      amount:    { invoice: 'USD 5,600', packing: '—', customs: 'USD 5,600', status: 'pass' },
+      hscode:    { invoice: '3304.99', packing: '—', customs: '3304.91', status: 'fail' },
+      shipper:   { invoice: 'ENOMAD KOREA Co.,Ltd', packing: 'ENOMAD KOREA CO LTD', customs: 'ENOMAD KOREA Co.,Ltd', status: 'warn' },
+      consignee: { invoice: 'LATAM BEAUTY S.A.', packing: 'LATAM BEAUTY SA', customs: 'LATAM BEAUTY DE C.V.', status: 'fail' }
+    }
+  }
+};
+
+const itemMeta = {
+  weight:    { icon: '⚖️', label: '중량' },
+  amount:    { icon: '💵', label: '금액' },
+  hscode:    { icon: '📦', label: 'HS코드' },
+  shipper:   { icon: '👤', label: '송하인' },
+  consignee: { icon: '👥', label: '수하인' }
+};
+
+// ================== 상태 관리 ==================
+let uploaded = { invoice: false, packing: false, customs: false };
+let selectedScenario = null;
+
+function handleUpload(type, input) {
+  if (!input.files[0]) return;
+  uploaded[type] = input.files[0].name;
+  const box = document.getElementById('box-' + type);
+  const status = document.getElementById('status-' + type);
+  box.classList.add('uploaded');
+  status.innerHTML = '<span class="brand-text font-semibold">✓ ' + input.files[0].name + '</span>';
+  checkReady();
+}
+
+function setScenario(key) {
+  selectedScenario = key;
+  document.querySelectorAll('.scenario-btn').forEach(b => {
+    b.classList.remove('bg-blue-50', 'border-blue-400');
+  });
+  event.target.classList.add('bg-blue-50', 'border-blue-400');
+  document.getElementById('scenarioDesc').innerHTML =
+    '선택됨: <b>' + scenarios[key].name + '</b> — 검증 시작 시 이 케이스 결과가 출력됩니다.';
+  checkReady();
+}
+
+function checkReady() {
+  const allUploaded = uploaded.invoice && uploaded.packing && uploaded.customs;
+  const ready = allUploaded && selectedScenario;
+  document.getElementById('validateBtn').disabled = !ready;
+  const hint = document.getElementById('validateHint');
+  if (ready) {
+    hint.textContent = '준비 완료! 검증을 시작하세요.';
+    hint.className = 'text-xs brand-text font-semibold mt-2';
+  } else if (!allUploaded) {
+    hint.textContent = '3개 서류를 모두 업로드해주세요.';
+    hint.className = 'text-xs text-gray-500 mt-2';
+  } else {
+    hint.textContent = '테스트 시나리오를 선택해주세요.';
+    hint.className = 'text-xs text-gray-500 mt-2';
+  }
+}
+
+function runValidation() {
+  document.getElementById('scanning').classList.remove('hidden');
+  document.getElementById('report').classList.add('hidden');
+  document.getElementById('validateBtn').disabled = true;
+
+  const steps = ['파일 파싱 중...', '항목 추출 중...', '교차 검증 중...', '리포트 생성 중...'];
+  let i = 0;
+  const interval = setInterval(() => {
+    document.getElementById('scanText').textContent = steps[i];
+    i++;
+    if (i >= steps.length) {
+      clearInterval(interval);
+      setTimeout(showReport, 400);
+    }
+  }, 600);
+}
+
+function showReport() {
+  document.getElementById('scanning').classList.add('hidden');
+  document.getElementById('report').classList.remove('hidden');
+
+  const data = scenarios[selectedScenario].data;
+  const statuses = Object.values(data).map(d => d.status);
+  const hasFail = statuses.includes('fail');
+  const hasWarn = statuses.includes('warn');
+
+  // 종합 결과
+  const summary = document.getElementById('summaryCard');
+  const title = document.getElementById('summaryTitle');
+  const sub = document.getElementById('summarySub');
+  if (hasFail) {
+    summary.className = 'rounded-lg p-5 mb-4 text-center status-fail';
+    title.textContent = '❌ FAIL · 수정 필요';
+    sub.textContent = '불일치 항목이 발견되었습니다. 출고 전 반드시 수정하세요.';
+  } else if (hasWarn) {
+    summary.className = 'rounded-lg p-5 mb-4 text-center status-warn';
+    title.textContent = '⚠️ WARN · 확인 권장';
+    sub.textContent = '경미한 표기 차이가 발견되었습니다. 수동 확인 권장.';
+  } else {
+    summary.className = 'rounded-lg p-5 mb-4 text-center status-pass';
+    title.textContent = '✅ PASS · 검증 완료';
+    sub.textContent = '5개 항목 모두 일치합니다. 출고 진행 가능.';
+  }
+
+  // 항목별 카드
+  const grid = document.getElementById('itemGrid');
+  grid.innerHTML = '';
+  Object.entries(data).forEach(([key, val]) => {
+    const meta = itemMeta[key];
+    const cls = val.status === 'pass' ? 'status-pass' : val.status === 'warn' ? 'status-warn' : 'status-fail';
+    const icon = val.status === 'pass' ? '✅' : val.status === 'warn' ? '⚠️' : '❌';
+    grid.innerHTML += `
+      <div class="rounded p-3 text-center ${cls}">
+        <div class="text-xl">${icon}</div>
+        <div class="text-xs font-bold mt-1">${meta.label}</div>
+        <div class="text-[10px] uppercase mt-0.5">${val.status}</div>
+      </div>`;
+  });
+
+  // 상세 테이블
+  const tbody = document.getElementById('detailTable');
+  tbody.innerHTML = '';
+  Object.entries(data).forEach(([key, val]) => {
+    const meta = itemMeta[key];
+    const badge = val.status === 'pass'
+      ? '<span class="status-pass px-2 py-0.5 rounded text-[10px] font-bold">PASS</span>'
+      : val.status === 'warn'
+      ? '<span class="status-warn px-2 py-0.5 rounded text-[10px] font-bold">WARN</span>'
+      : '<span class="status-fail px-2 py-0.5 rounded text-[10px] font-bold">FAIL</span>';
+    tbody.innerHTML += `
+      <tr class="border-t border-gray-100">
+        <td class="px-3 py-2 font-semibold">${meta.icon} ${meta.label}</td>
+        <td class="px-3 py-2">${val.invoice}</td>
+        <td class="px-3 py-2">${val.packing}</td>
+        <td class="px-3 py-2 font-semibold">${val.customs}</td>
+        <td class="px-3 py-2 text-center">${badge}</td>
+      </tr>`;
+  });
+
+  // 이슈 리스트
+  const issueList = document.getElementById('issueList');
+  const issues = Object.entries(data).filter(([k, v]) => v.status !== 'pass');
+  if (issues.length === 0) {
+    issueList.innerHTML = '';
+  } else {
+    let html = '<div class="bg-white border border-gray-200 rounded-lg p-4"><div class="text-xs font-bold brand-text mb-2">🚨 발견된 이슈 (' + issues.length + '건)</div>';
+    issues.forEach(([key, val]) => {
+      const meta = itemMeta[key];
+      const cls = val.status === 'warn' ? 'status-warn' : 'status-fail';
+      let msg = '';
+      if (val.status === 'fail') {
+        msg = `면장 기준 <b>"${val.customs}"</b> 과(와) 다른 값이 발견됨. 면장 기준으로 인보이스/패킹 수정 또는 면장 정정 필요.`;
+      } else {
+        msg = `표기 차이가 있으나 동일 대상으로 추정됨. 수동 확인 권장.`;
+      }
+      html += `<div class="${cls} rounded p-2 mb-2 text-xs"><b>[${meta.label}]</b> ${msg}</div>`;
+    });
+    html += '</div>';
+    issueList.innerHTML = html;
+  }
+}
+
+function resetAll() {
+  uploaded = { invoice: false, packing: false, customs: false };
+  selectedScenario = null;
+  ['invoice', 'packing', 'customs'].forEach(t => {
+    document.getElementById('box-' + t).classList.remove('uploaded');
+    document.getElementById('status-' + t).textContent = 'PDF · Excel 업로드';
+    document.getElementById('file-' + t).value = '';
+  });
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('bg-blue-50', 'border-blue-400'));
+  document.getElementById('scenarioDesc').textContent = '시나리오를 선택하면 해당 케이스로 검증 결과가 출력됩니다.';
+  document.getElementById('report').classList.add('hidden');
+  document.getElementById('scanning').classList.add('hidden');
+  checkReady();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 드래그앤드롭
+['invoice', 'packing', 'customs'].forEach(type => {
+  const box = document.getElementById('box-' + type);
+  box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('dragover'); });
+  box.addEventListener('dragleave', e => box.classList.remove('dragover'));
+  box.addEventListener('drop', e => {
+    e.preventDefault();
+    box.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const input = document.getElementById('file-' + type);
+      input.files = e.dataTransfer.files;
+      handleUpload(type, input);
+    }
+  });
+});
+</script>
+
+</body>
+</html>
